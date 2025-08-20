@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SliceBox — True 3D (WebGL, no libraries)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app" role="application" aria-label="SliceBox 3D Dimension Visualizer">
+    <div class="panel" aria-labelledby="title">
+      <header>
+        <h1 id="title">SliceBox</h1>
+        <span class="badge">3D • Units: meters (m)</span>
+      </header>
+
+      <form id="dimForm" novalidate>
+        <div class="row-3">
+          <div>
+            <label for="width">Width (X)</label>
+            <input id="width" name="width" type="number" min="0.01" step="0.01" placeholder="e.g. 2.5" />
+          </div>
+          <div>
+            <label for="height">Height (Y)</label>
+            <input id="height" name="height" type="number" min="0.01" step="0.01" placeholder="e.g. 1.2" />
+          </div>
+          <div>
+            <label for="depth">Depth (Z)</label>
+            <input id="depth" name="depth" type="number" min="0.01" step="0.01" placeholder="e.g. 3.0" />
+          </div>
+        </div>
+
+        <div class="actions" role="group" aria-label="Actions">
+          <button type="submit" id="sliceBtn">Slice</button>
+          <button type="button" class="secondary" id="randomBtn">Random</button>
+          <button type="button" class="ghost" id="resetBtn">Reset</button>
+        </div>
+
+        <div class="toggles" aria-label="Scene options">
+          <label class="toggle"><input type="checkbox" id="gridToggle" /> Show grid</label>
+          <label class="toggle"><input type="checkbox" id="wireToggle" /> Wireframe box</label>
+        </div>
+
+        <div class="legend">
+          <span class="chip"><span class="dot x"></span> X (width)</span>
+          <span class="chip"><span class="dot y"></span> Y (height)</span>
+          <span class="chip"><span class="dot z"></span> Z (depth)</span>
+        </div>
+
+        <div class="errors">
+          <div id="errorMsg" class="error" role="alert"></div>
+        </div>
+
+        <p class="tips">Tip: Drag to orbit, wheel to zoom, right-drag (or Alt-drag) to pan. Hit <kbd>Enter</kbd> to slice.</p>
+      </form>
+
+      <footer>Blank on load • Renders a solid prism on slice • Pure WebGL</footer>
+    </div>
+
+    <div class="stage panel" id="stage" aria-label="3D viewport">
+      <canvas id="gl"></canvas>
+      <div class="watermark" id="wm" hidden>SliceBox • WebGL</div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
