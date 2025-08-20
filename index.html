@@ -8,6 +8,8 @@
 </head>
 <body>
   <div class="app" role="application" aria-label="SliceBox 3D Dimension Visualizer">
+    
+    <!-- LEFT PANEL -->
     <div class="panel" aria-labelledby="title">
       <header>
         <h1 id="title">SliceBox</h1>
@@ -60,15 +62,19 @@
 
         <p class="tips">Tip: Drag to orbit, wheel to zoom, right-drag (or Alt-drag) to pan. Hit <kbd>Enter</kbd> to slice.</p>
       </form>
-
-      <footer>Blank on load • Renders solid prisms on slice • Pure WebGL</footer>
     </div>
 
+    <!-- RIGHT PANEL -->
     <div class="stage panel" id="stage" aria-label="3D viewport">
       <canvas id="gl"></canvas>
       <div class="watermark" id="wm" hidden>SliceBox • WebGL</div>
     </div>
   </div>
+
+  <!-- GLOBAL FOOTER -->
+  <footer class="global-footer">
+    <img src="images/footer.png" alt="SliceBox footer" />
+  </footer>
 
   <script src="app.js"></script>
 </body>
