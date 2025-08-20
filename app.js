@@ -44,29 +44,67 @@ function resize(){
 window.addEventListener('resize', resize); resize();
 
 /* ----------------- Shaders ----------------- */
-const vs = `
+// Solid with 2 lights (warm key + cool fill) + ambient
+const vsTri = `
 attribute vec3 aPos; attribute vec3 aNormal;
-uniform mat4 uModel,uView,uProj; uniform vec3 uLightDir;
-varying float vLight;
+uniform mat4 uModel,uView,uProj;
+varying vec3 vWorldNormal;
 void main(){
-  vec3 n = normalize(mat3(uModel)*aNormal);
-  vLight = 0.25 + 0.75*max(dot(n, normalize(uLightDir)), 0.0);
+  vWorldNormal = mat3(uModel) * aNormal;
   gl_Position = uProj * uView * uModel * vec4(aPos,1.0);
 }`;
-const fs = `precision mediump float; uniform vec3 uColor; varying float vLight;
-void main(){ gl_FragColor = vec4(uColor * vLight, 1.0); }`;
-const vsl = `attribute vec3 aPos; uniform mat4 uModel,uView,uProj;
-void main(){ gl_Position = uProj*uView*uModel*vec4(aPos,1.0);} `;
-const fsl = `precision mediump float; uniform vec3 uColor; void main(){ gl_FragColor = vec4(uColor,1.0); }`;
+const fsTri = `
+precision mediump float;
+varying vec3 vWorldNormal;
+uniform vec3 uColor;
+uniform vec3 uLightDir1; // warm key
+uniform vec3 uLightDir2; // cool fill
+uniform float uAmbient;
+void main(){
+  vec3 N = normalize(vWorldNormal);
+  float diff1 = max(dot(N, normalize(uLightDir1)), 0.0);
+  float diff2 = max(dot(N, normalize(uLightDir2)), 0.0);
+  // subtle tinting on second light
+  vec3 light = uAmbient + diff1*vec3(1.0,0.98,0.95) + diff2*vec3(0.9,0.95,1.0);
+  gl_FragColor = vec4(uColor * light, 1.0);
+}`;
+
+// Lines (wireframe/edges)
+const vsLine = `attribute vec3 aPos; uniform mat4 uModel,uView,uProj; void main(){ gl_Position = uProj*uView*uModel*vec4(aPos,1.0);} `;
+const fsLine = `precision mediump float; uniform vec3 uColor; void main(){ gl_FragColor = vec4(uColor,1.0); }`;
+
+// Fading grid (distance-based alpha)
+const vsGrid = `
+attribute vec3 aPos;
+uniform mat4 uModel,uView,uProj;
+varying vec3 vWorld;
+void main(){
+  vWorld = (uModel * vec4(aPos,1.0)).xyz;
+  gl_Position = uProj * uView * vec4(vWorld,1.0);
+}`;
+const fsGrid = `
+precision mediump float;
+varying vec3 vWorld;
+uniform vec3 uColor;
+uniform float uFalloffRadius;
+uniform float uBaseAlpha;
+void main(){
+  float r = length(vWorld.xz);
+  float t = clamp(1.0 - r / uFalloffRadius, 0.0, 1.0);
+  float alpha = uBaseAlpha * t;
+  gl_FragColor = vec4(uColor, alpha);
+}`;
+
+// Warm/cool lights
+const progTri  = program(vsTri, fsTri);
+const progLine = program(vsLine, fsLine);
+const progGrid = program(vsGrid, fsGrid);
 
 function compile(type, src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
   if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s)); return s; }
 function program(vsSrc,fsSrc){ const p=gl.createProgram(); gl.attachShader(p,compile(gl.VERTEX_SHADER,vsSrc));
   gl.attachShader(p,compile(gl.FRAGMENT_SHADER,fsSrc)); gl.linkProgram(p);
   if(!gl.getProgramParameter(p,gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(p)); return p; }
-
-const progTri = program(vs,fs);
-const progLine = program(vsl,fsl);
 
 /* ----------------- Unit cube geometry ----------------- */
 const cube = (()=>{
@@ -88,6 +126,42 @@ const cube = (()=>{
     triCount: pos.length/3,
     linePos: buf(line, gl.getAttribLocation(progLine,'aPos'), 3),
     lineCount: line.length/3
+  };
+})();
+
+/* ----------------- Ground plane (soft radial disk) ----------------- */
+const ground = (()=>{
+  // A big square on y = -0.0001 to avoid z-fighting with grid/boxes
+  const S = 20.0;
+  const pos = [
+    -S,-0.0001,-S,  S,-0.0001,-S,  S,-0.0001, S,
+    -S,-0.0001,-S,  S,-0.0001, S, -S,-0.0001, S
+  ];
+  const vsG = `
+  attribute vec3 aPos;
+  uniform mat4 uView,uProj;
+  varying vec2 vXZ;
+  void main(){
+    vXZ = aPos.xz;
+    gl_Position = uProj * uView * vec4(aPos,1.0);
+  }`;
+  const fsG = `
+  precision mediump float;
+  varying vec2 vXZ;
+  void main(){
+    float r = length(vXZ);
+    // soft radial gradient: dark center -> transparent edge
+    float alpha = smoothstep(8.0, 0.0, r);
+    vec3 col = vec3(0.05, 0.07, 0.10);
+    gl_FragColor = vec4(col, alpha*0.7);
+  }`;
+  const prog = program(vsG, fsG);
+  const b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(pos),gl.STATIC_DRAW);
+  return {
+    prog,
+    buf: { b, loc: gl.getAttribLocation(prog,'aPos'), size:3 },
+    count: pos.length/3
   };
 })();
 
@@ -134,13 +208,13 @@ randomBtn.addEventListener('click', ()=>{
   form.requestSubmit();
 });
 
-/* --------- Build N instances in a single horizontal row --------- */
+/* --------- Build N instances in a single horizontal row (with color shift) --------- */
 function buildInstancesRow(w,h,d,n){
   const maxDim = Math.max(w,h,d);
   const S = 2 / maxDim;     // meters -> world units (largest ≈ 2)
   const W = w*S, H = h*S, D = d*S;
 
-  const gap = 0.3;          // world-space gap between blocks
+  const gap = 0.3;          // world gap between blocks
   const totalW = n*W + (n-1)*gap;
   const x0 = -totalW/2 + W/2;
 
@@ -148,16 +222,14 @@ function buildInstancesRow(w,h,d,n){
   for (let i=0;i<n;i++){
     const tx = x0 + i*(W+gap), tz = 0;
     let m = Mat4.identity();
-    m = Mat4.translate(m, tx, 0, tz); // world placement (not scaled)
-    m = Mat4.scale(m, W, H, D);       // size to dimensions
+    m = Mat4.translate(m, tx, 0, tz); // world placement
+    m = Mat4.scale(m, W, H, D);       // size
     m = Mat4.translate(m, 0, 0.5, 0); // sit on ground
     instanceModels.push(m);
   }
 
-  // Frame camera to entire row
   const rBound = Math.sqrt(totalW*totalW + D*D + H*H) / 2;
   eyeDist = Math.max(3, rBound * 3.0);
-
   hasInstances = true;
 }
 
@@ -189,23 +261,63 @@ function render(){
               target[2]+eyeDist*Math.cos(pitch)*Math.sin(yaw) ];
   const view = Mat4.lookAt(eye, target, [0,1,0]);
 
-  if (showGrid) drawGrid(view, proj);
+  // --- Ground (blended) ---
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.useProgram(ground.prog);
+  setAttrib(ground.buf);
+  setMat(ground.prog,'uView',view);
+  setMat(ground.prog,'uProj',proj);
+  gl.drawArrays(gl.TRIANGLES, 0, ground.count);
 
+  // --- Grid (blended + fading with distance) ---
+  if (showGrid) {
+    const gridData = getGridLines();
+    gl.bindBuffer(gl.ARRAY_BUFFER, gridData.buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gridData.lines), gl.STREAM_DRAW);
+
+    gl.useProgram(progGrid);
+    const loc = gl.getAttribLocation(progGrid,'aPos');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc,3,gl.FLOAT,false,0,0);
+    setMat(progGrid,'uModel', Mat4.identity());
+    setMat(progGrid,'uView', view);
+    setMat(progGrid,'uProj', proj);
+    setVec3(progGrid,'uColor',[0.18,0.22,0.28]);
+    gl.uniform1f(gl.getUniformLocation(progGrid,'uFalloffRadius'), 12.0);
+    gl.uniform1f(gl.getUniformLocation(progGrid,'uBaseAlpha'), 0.8);
+    gl.drawArrays(gl.LINES, 0, gridData.lines.length/3);
+  }
+
+  // --- Boxes (solid, no blending) ---
+  gl.disable(gl.BLEND);
   if (hasInstances){
-    // Solid fill
     gl.useProgram(progTri);
     setAttrib(cube.triPos); setAttrib(cube.triNrm);
     setMat(progTri,'uView',view); setMat(progTri,'uProj',proj);
-    setVec3(progTri,'uLightDir',[0.7,0.8,0.4]); setVec3(progTri,'uColor',[0.19,0.70,0.78]);
-    instanceModels.forEach(m=>{ setMat(progTri,'uModel',m); gl.drawArrays(gl.TRIANGLES,0,cube.triCount); });
+    // warm key (from above-right), cool fill (from behind-left)
+    setVec3(progTri,'uLightDir1',[0.8,1.0,0.6]);
+    setVec3(progTri,'uLightDir2',[-0.6,0.6,-0.8]);
+    gl.uniform1f(gl.getUniformLocation(progTri,'uAmbient'), 0.25);
 
-    // Wireframe overlay
+    // draw each with a pleasant hue shift
+    const n = instanceModels.length;
+    for (let i=0;i<n;i++){
+      setMat(progTri,'uModel',instanceModels[i]);
+      const rgb = hslToRgb(0.55 + i*0.03, 0.55, 0.55); // teal-ish base, slight hue shift
+      setVec3(progTri,'uColor', rgb);
+      gl.drawArrays(gl.TRIANGLES,0,cube.triCount);
+    }
+
+    // Wireframe overlay (blended)
     if (showWire){
+      gl.enable(gl.BLEND);
       gl.useProgram(progLine);
       setAttrib(cube.linePos);
-      setMat(progLine,'uView',view); setMat(progLine,'uProj',proj); setVec3(progLine,'uColor',[1,1,1]);
-      gl.lineWidth(1);
+      setMat(progLine,'uView',view); setMat(progLine,'uProj',proj);
+      setVec3(progLine,'uColor',[1,1,1]);
       instanceModels.forEach(m=>{ setMat(progLine,'uModel',m); gl.drawArrays(gl.LINES,0,cube.lineCount); });
+      gl.disable(gl.BLEND);
     }
   }
 
@@ -213,23 +325,36 @@ function render(){
 }
 requestAnimationFrame(render);
 
-/* ----------------- GL helpers ----------------- */
+/* ----------------- Helpers ----------------- */
 function setAttrib(buf){ gl.bindBuffer(gl.ARRAY_BUFFER, buf.b); gl.enableVertexAttribArray(buf.loc); gl.vertexAttribPointer(buf.loc,buf.size,gl.FLOAT,false,0,0); }
 function setMat(p,name,m){ const loc=gl.getUniformLocation(p,name); gl.uniformMatrix4fv(loc,false,new Float32Array(m)); }
 function setVec3(p,name,v){ const loc=gl.getUniformLocation(p,name); gl.uniform3fv(loc,new Float32Array(v)); }
 
-/* ----------------- Validation & grid ----------------- */
 function validate(w,h,d,n){
   if ([w,h,d].some(Number.isNaN)) return 'Please enter numeric values for all dimensions.';
   if ([w,h,d].some(v=>v<=0)) return 'All dimensions must be greater than zero.';
   if (!Number.isInteger(n) || n<1 || n>16) return 'Entities must be an integer from 1 to 16.';
   return '';
 }
-function drawGrid(view, proj){
+
+// Distance-fading grid data buffer (reused)
+const gridBuffer = gl.createBuffer();
+function getGridLines(){
   const lines=[]; const N=30, step=0.5;
-  for(let i=-N;i<=N;i++){ lines.push(-N*step,0,i*step,  N*step,0,i*step); lines.push(i*step,0,-N*step,  i*step,0,N*step); }
-  const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(lines),gl.STREAM_DRAW);
-  gl.useProgram(progLine); const loc=gl.getAttribLocation(progLine,'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,3,gl.FLOAT,false,0,0);
-  setMat(progLine,'uModel',Mat4.identity()); setMat(progLine,'uView',view); setMat(progLine,'uProj',proj); setVec3(progLine,'uColor',[0.18,0.22,0.28]);
-  gl.drawArrays(gl.LINES,0,lines.length/3); gl.deleteBuffer(buf);
+  for(let i=-N;i<=N;i++){
+    lines.push(-N*step,0,i*step,  N*step,0,i*step);
+    lines.push(i*step,0,-N*step,  i*step,0, N*step);
+  }
+  return { lines, buf: gridBuffer };
+}
+
+// HSL → RGB in [0..1]
+function hslToRgb(h,s,l){
+  h = (h%1+1)%1;
+  const a = s*Math.min(l,1-l);
+  const f = n=>{
+    const k=(n+h*12)%12;
+    return l - a * Math.max(Math.min(k-3, 9-k, 1), -1);
+  };
+  return [f(0),f(8),f(4)];
 }
