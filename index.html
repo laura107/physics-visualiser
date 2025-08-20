@@ -30,6 +30,13 @@
           </div>
         </div>
 
+        <div class="row-3">
+          <div>
+            <label for="entities">Entities (1–16)</label>
+            <input id="entities" name="entities" type="number" min="1" max="16" step="1" placeholder="e.g. 4" />
+          </div>
+        </div>
+
         <div class="actions" role="group" aria-label="Actions">
           <button type="submit" id="sliceBtn">Slice</button>
           <button type="button" class="secondary" id="randomBtn">Random</button>
@@ -54,7 +61,7 @@
         <p class="tips">Tip: Drag to orbit, wheel to zoom, right-drag (or Alt-drag) to pan. Hit <kbd>Enter</kbd> to slice.</p>
       </form>
 
-      <footer>Blank on load • Renders a solid prism on slice • Pure WebGL</footer>
+      <footer>Blank on load • Renders solid prisms on slice • Pure WebGL</footer>
     </div>
 
     <div class="stage panel" id="stage" aria-label="3D viewport">
