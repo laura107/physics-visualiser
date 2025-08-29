@@ -27,7 +27,7 @@ html,body{
   display:grid;
   grid-template-columns:420px 1fr;
   gap:18px;
-  flex:1; /* fill space above footer */
+  flex:1; 
   padding:18px
 }
 @media (max-width:900px){
@@ -191,23 +191,21 @@ button.ghost{
   pointer-events:none
 }
 
-/* Footer stays the same height */
 .global-footer {
   width: 100%;
-  height: 60px;                 /* keep this the same */
+  height: 60px;
   background: #f2f2f2;
   border-top: 1px solid #ccc;
   display: flex;
-  align-items: center;          /* vertically center image */
-  justify-content: center;      /* horizontally center image */
-  padding: 0;                   /* no extra space that would reduce image height */
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
-/* Make the image fill the footer's height */
 .global-footer img {
-  height: 56px;                 /* a touch smaller than 60 so it fits cleanly */
-  max-height: 100%;             /* never exceed footer */
-  width: auto;                  /* preserve aspect ratio */
-  max-width: none;              /* don't cap by width */
+  height: 56px;
+  max-height: 100%;
+  width: auto;
+  max-width: none;
   display: block;
 }
