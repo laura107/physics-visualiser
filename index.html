@@ -3,31 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SliceBox — True 3D (WebGL, no libraries)</title>
+  <title>HARPSCREEN</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app" role="application" aria-label="SliceBox 3D Dimension Visualizer">
+  <div class="app" role="application" aria-label="HARPSCREEN X VEC - 3D VISUALISER">
     
     <!-- LEFT PANEL -->
     <div class="panel" aria-labelledby="title">
       <header>
-        <h1 id="title">SliceBox</h1>
+        <h1 id="title">HARPSCREEN</h1>
         <span class="badge">3D • Units: meters (m)</span>
       </header>
 
       <form id="dimForm" novalidate>
         <div class="row-3">
           <div>
-            <label for="width">Width (X)</label>
+            <label for="width">width (X)</label>
             <input id="width" name="width" type="number" min="0.01" step="0.01" placeholder="e.g. 2.5" />
           </div>
           <div>
-            <label for="height">Height (Y)</label>
+            <label for="height">height (Y)</label>
             <input id="height" name="height" type="number" min="0.01" step="0.01" placeholder="e.g. 1.2" />
           </div>
           <div>
-            <label for="depth">Depth (Z)</label>
+            <label for="depth">depth (Z)</label>
             <input id="depth" name="depth" type="number" min="0.01" step="0.01" placeholder="e.g. 3.0" />
           </div>
         </div>
@@ -77,5 +77,7 @@
   </footer>
 
   <script src="app.js"></script>
+  <button type="button" class="ghost save-btn" aria-label="Save as xxx">Save as xxx</button>
+
 </body>
 </html>

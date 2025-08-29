@@ -209,3 +209,17 @@ button.ghost{
   max-width: none;
   display: block;
 }
+
+.save-btn{
+  position: fixed;
+  top: 25px;
+  right: 25px;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+@media (max-width:900px){
+  .save-btn{ top: 10px; right: 10px; }
+}
